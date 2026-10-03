@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+APP="DEVOPS-X"; VERSION="1.0.0"
+usage(){ echo "$APP $VERSION"; echo "Usage: $0 {system|network|disk|processes|init|git-status|logs|cleanup}"; }
+system_info(){ echo "=== SYSTEM ==="; uname -a; echo "Shell: $SHELL"; command -v python >/dev/null && python --version || true; command -v git >/dev/null && git --version || true; }
+network_info(){ echo "=== NETWORK ==="; command -v ip >/dev/null && ip addr || ifconfig 2>/dev/null || true; command -v getent >/dev/null && getent hosts example.com || true; }
+disk_info(){ df -h; echo; du -sh . 2>/dev/null || true; }
+process_info(){ ps aux 2>/dev/null | head -16 || ps -ef | head -16; }
+init_project(){ [ $# -eq 1 ] || { echo "Usage: $0 init <name>"; exit 2; }; mkdir -p "$1"/{src,tests,docs}; printf '# %s\n' "$1" > "$1/README.md"; printf '#!/usr/bin/env bash\nset -euo pipefail\n' > "$1/run.sh"; chmod +x "$1/run.sh"; echo "Created $1"; }
+git_status(){ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Not a Git repository."; exit 1; }; git status --short --branch; git log -5 --oneline --decorate; }
+logs(){ [ $# -eq 1 ] && [ -f "$1" ] || { echo "Usage: $0 logs <file>"; exit 2; }; tail -n 50 "$1"; }
+cleanup(){ read -r -p "Delete common caches/build directories? [y/N] " a; [[ "$a" =~ ^[Yy]$ ]] || return; find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name node_modules \) -prune -exec rm -rf {} +; find . -type f \( -name '*.pyc' -o -name '*.tmp' \) -delete; echo "Cleanup complete."; }
+cmd="${1:-}"; shift || true
+case "$cmd" in
+system) system_info;; network) network_info;; disk) disk_info;; processes) process_info;;
+init) init_project "$@";; git-status) git_status;; logs) logs "$@";; cleanup) cleanup;;
+-h|--help|"") usage;; *) echo "Unknown command: $cmd"; usage; exit 2;; esac
